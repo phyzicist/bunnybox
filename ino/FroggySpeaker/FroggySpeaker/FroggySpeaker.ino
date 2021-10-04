@@ -1,6 +1,7 @@
 /// FroggySpeaker, version 1
 
 // Uses TeensyDuino Audio library: https://www.pjrc.com/teensy/td_libs_Audio.html
+// Decreases volume down after a specified amount of time.
 
 #include <Audio.h>
 #include <Wire.h>
@@ -9,12 +10,16 @@
 #include <SerialFlash.h>
 #include <string.h>
 #include <stdio.h>
+#include <millisDelay.h> // Requires "SafeString" library
 
 #define LEDR_PIN 3 // Right eye LED
 #define LEDR_GND 2 // Right eye faux-ground pin
 #define LEDL_PIN 5 // Left eye LED
 #define LEDL_GND 9 // Left eye faux-ground pin
-#define NSONGS 1
+#define NSONGS 11
+#define FADE1MINS 30 // Total minutes to wait before first fading volume
+#define FADE2MINS 60 // Total minutes to wait before second fading volume
+#define PREAMP 0.05 // Initial pre-amplifier value
 
 void playFile(const char *filename);
 
@@ -31,10 +36,24 @@ AudioConnection          patchCord4(amp1, 0, i2s1, 0);
 
 // Song List
 char songs[][13] = {  // filenames are always uppercase 8.3 format
-                       "SoftMusic.wav",
+                       "02-01.wav",
+                       "02-02.wav",
+                       "02-03.wav",
+                       "02-04.wav",
+                       "02-05.wav",
+                       "02-06.wav",
+                       "02-07.wav",
+                       "02-08.wav",
+                       "02-09.wav",
+                       "02-10.wav",
+                       "02-11.wav",
                    };
 int i = 0;
-                   
+
+// Audio fade timing
+millisDelay fadeDelay1;
+millisDelay fadeDelay2;
+
 void setup() {
   Serial.begin(9600);
 
@@ -67,10 +86,13 @@ void setup() {
   digitalWrite(LEDL_PIN, HIGH); 
   
   // Set up speaker volume
-  double preamp = 0.05;
-  amp1.gain(preamp);
-  amp2.gain(preamp);
+  amp1.gain(PREAMP);
+  amp2.gain(PREAMP);
 
+  // Set up a delay timer for a fading of audio volume
+  fadeDelay1.start(FADE1MINS * 60 * 1000);
+  fadeDelay2.start(FADE2MINS * 60 * 1000);
+  
   // Start the second song
   i = 0;
   playFile(songs[i]);
@@ -98,6 +120,16 @@ void loop() {
     }
     else {
       i = 0;
+    }
+
+    // Adjust the volume if appropriate
+    if (fadeDelay1.justFinished()){
+      amp1.gain(PREAMP*0.75);
+      amp2.gain(PREAMP*0.75);    
+    }
+    if (fadeDelay2.justFinished()){
+      amp1.gain(PREAMP*0.5);
+      amp2.gain(PREAMP*0.5);    
     }
     
     // Play the new song
